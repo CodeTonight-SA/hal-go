@@ -150,8 +150,37 @@ const (
 	KindContextSupersede = "context-supersede"
 )
 
+// Unknown is an event whose type this library does not recognise.
+//
+// The spec makes tolerating these mandatory rather than optional: "unknown
+// event types/fields are ignored, never rejected". A newer runtime may
+// introduce event types that did not exist when this library was written, and
+// a consumer is required to forward them inertly rather than fail.
+//
+// Fields carries everything the event held, so a caller that DOES understand
+// the new type can still read it. Unknown is deliberately neither an outcome
+// nor a post-terminator, so it can never be mistaken for the end of a stream.
+type Unknown struct {
+	base
+	Fields map[string]any
+}
+
+// decodeUnknown wraps an unrecognised event, preserving its contents.
+func decodeUnknown(line []byte, typ string) (Event, error) {
+	var fields map[string]any
+	if err := json.Unmarshal(line, &fields); err != nil {
+		return nil, fmt.Errorf("events: decode unknown %s: %w", typ, err)
+	}
+	ev := &Unknown{Fields: fields}
+	if err := json.Unmarshal(line, &ev.base); err != nil {
+		return nil, fmt.Errorf("events: decode unknown %s: %w", typ, err)
+	}
+	return ev, nil
+}
+
 // known is the dispatch table from HAPPI type strings to constructors.
-// O(1) lookup keeps Decoder.Next's cyclomatic complexity flat.
+// O(1) lookup keeps Decoder.Next's cyclomatic complexity flat. A type absent
+// from this table is NOT an error — see parseLine and Unknown.
 var known = map[string]func() Event{
 	"started":     func() Event { return &Started{} },
 	"delta":       func() Event { return &Delta{} },
@@ -243,7 +272,12 @@ func parseLine(line []byte) (Event, error) {
 	}
 	ctor, ok := known[peek.Type]
 	if !ok {
-		return nil, fmt.Errorf("events: unknown type %q", peek.Type)
+		// Unknown types are tolerated, not rejected. The spec requires it:
+		// "unknown event types/fields are ignored, never rejected". Rejecting
+		// them would also undo the forward-compatible version policy — there
+		// is no value in accepting a happi/1.9 stream if the first event type
+		// introduced in 1.9 kills the decode.
+		return decodeUnknown(line, peek.Type)
 	}
 	ev := ctor()
 	if err := json.Unmarshal(line, ev); err != nil {

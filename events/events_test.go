@@ -92,14 +92,50 @@ func TestCompletedUsageIsOptional(t *testing.T) {
 	}
 }
 
-func TestRejectsUnknownEventType(t *testing.T) {
-	d := NewDecoder(strings.NewReader(`{"v":"happi/1.0","id":"x","type":"nonexistent","ts":0}` + "\n"))
-	_, err := d.Next()
-	if err == nil {
-		t.Fatal("expected error for unknown type")
+func TestToleratesUnknownEventType(t *testing.T) {
+	// The spec requires it: "unknown event types/fields are ignored, never
+	// rejected". This test previously asserted the opposite — that an
+	// unrecognised type must error — which contradicted the spec AND undid
+	// the forward-compatible version policy: there is no value in accepting a
+	// happi/1.9 stream if the first event type introduced in 1.9 kills it.
+	d := NewDecoder(strings.NewReader(
+		`{"v":"happi/1.9","id":"x","type":"reasoning_step","ts":0,"depth":3}` + "\n"))
+	ev, err := d.Next()
+	if err != nil {
+		t.Fatalf("unknown type must be tolerated, got error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "unknown type") {
-		t.Errorf("error = %q, want contains \"unknown type\"", err.Error())
+	if ev.EventType() != "reasoning_step" {
+		t.Errorf("EventType() = %q, want reasoning_step", ev.EventType())
+	}
+	unknown, ok := ev.(*Unknown)
+	if !ok {
+		t.Fatalf("event is %T, want *Unknown", ev)
+	}
+	// Whatever it carried is preserved, so a caller that DOES understand the
+	// new type can still read it.
+	if depth, present := unknown.Fields["depth"]; !present || depth != float64(3) {
+		t.Errorf("Fields[depth] = %v, want the original payload preserved", depth)
+	}
+}
+
+func TestAnUnknownEventIsNeverMistakenForTheEndOfAStream(t *testing.T) {
+	d := NewDecoder(strings.NewReader(
+		`{"v":"happi/1.0","id":"x","type":"nonexistent","ts":0}` + "\n"))
+	ev, err := d.Next()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if IsOutcome(ev) || IsPostTerminator(ev) {
+		t.Error("an unknown event must be neither an outcome nor a terminator")
+	}
+}
+
+func TestAMalformedEventStillErrorsEvenThoughUnknownTypesDoNot(t *testing.T) {
+	// Tolerating unknown TYPES must not become tolerating malformed input,
+	// or the decoder would accept anything at all.
+	d := NewDecoder(strings.NewReader(`{not json}` + "\n"))
+	if _, err := d.Next(); err == nil {
+		t.Error("malformed JSON must still error")
 	}
 }
 
