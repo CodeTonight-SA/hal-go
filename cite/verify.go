@@ -53,11 +53,29 @@ func VerifyQuote(quote, sourceText string) (status string, start, end int) {
 		utf8.RuneCountInString(folded[:loc[1]])
 }
 
+// MaxFlexibleTokens bounds how many words the tolerant pass will build a
+// pattern from. Sources and quotes may be attacker-controlled — this package
+// exists to check untrusted documents — so the pattern must not grow without
+// limit.
+//
+// Go's regexp is RE2, which is linear in the input by construction and cannot
+// backtrack catastrophically, so this is a resource bound on pattern SIZE
+// rather than protection against exponential matching. It also keeps Go and
+// hal-py agreeing on results for pathological input, which matters more than
+// either limit in isolation: a quote that one runtime fuzzes and the other
+// refuses would make the two disagree about whether a claim is grounded.
+const MaxFlexibleTokens = 512
+
 // flexiblePattern builds a regexp matching the quote with any run of
-// whitespace between its words. Returns nil if the quote has no word content.
+// whitespace between its words. Returns nil if the quote has no word content
+// or has more words than MaxFlexibleTokens.
+//
+// Every word is passed through regexp.QuoteMeta, so a quote made of regex
+// metacharacters is matched as the literal text the user wrote rather than
+// interpreted as a pattern.
 func flexiblePattern(needle string) *regexp.Regexp {
 	words := strings.Fields(fold(needle))
-	if len(words) == 0 {
+	if len(words) == 0 || len(words) > MaxFlexibleTokens {
 		return nil
 	}
 	quoted := make([]string, 0, len(words))
