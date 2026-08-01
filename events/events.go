@@ -34,10 +34,11 @@ import (
 // Version is the protocol version this library emits.
 const Version = happi.Version
 
-// AcceptedVersions lists every event version the Decoder accepts. A runtime
-// stamps events with its own version, so pinning to a single value would
-// reject every stream from a newer runtime. See the happi package.
-var AcceptedVersions = happi.AcceptedVersions
+// KnownVersions are the protocol minors that existed when this library was
+// written. Informational only: the Decoder accepts any happi/1.x via
+// happi.IsAccepted, because a runtime stamps events with its own version and
+// is free to advance ahead of this library. See the happi package.
+var KnownVersions = happi.KnownVersions
 
 // Event is the typed HAPPI event interface. Every event carries v, id,
 // type, ts. Concrete types add type-specific fields.

@@ -3,7 +3,7 @@
 //
 // HAPPI spec: a HAPPI envelope has five required+optional fields:
 //
-//	v     (required, one of happi.AcceptedVersions)
+//	v     (required, any happi/1.x — see happi.IsAccepted)
 //	id    (required, caller-assigned, opaque, unique per call)
 //	cmd   (required, dot-path)
 //	args  (optional, array of arbitrary values)
@@ -28,10 +28,12 @@ import (
 // Version is the protocol version New stamps on envelopes it builds.
 const Version = happi.Version
 
-// AcceptedVersions lists every envelope version Validate accepts. See the
-// happi package for why accepting a range — rather than one exact value —
-// is what makes a client interoperable.
-var AcceptedVersions = happi.AcceptedVersions
+// KnownVersions are the protocol minors that existed when this library was
+// written. Informational only: acceptance is decided by happi.IsAccepted,
+// which admits any happi/1.x, so a future minor is not rejected merely for
+// being absent here. See the happi package for why the policy is a
+// major-version rule rather than a fixed enumeration.
+var KnownVersions = happi.KnownVersions
 
 // Envelope is a HAPPI/1.0 envelope. Marshal produces the canonical wire
 // form; Unmarshal preserves unknown fields in Extra so they round-trip.

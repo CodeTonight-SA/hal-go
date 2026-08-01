@@ -35,15 +35,37 @@ func TestEmittedVersionIs13(t *testing.T) {
 	}
 }
 
-func TestAcceptedVersionsSpan10To13(t *testing.T) {
-	// Named explicitly rather than compared to the package's own slice, so a
-	// mutation that narrows the accept-set fails instead of trivially agreeing.
-	if len(happi.AcceptedVersions) != len(allVersions) {
-		t.Fatalf("AcceptedVersions = %v, want %v", happi.AcceptedVersions, allVersions)
+func TestAcceptsEveryShippedVersion(t *testing.T) {
+	// Named explicitly rather than read back from the package, so a mutation
+	// that narrows acceptance fails instead of trivially agreeing with itself.
+	for _, v := range allVersions {
+		if !happi.IsAccepted(v) {
+			t.Errorf("IsAccepted(%q) = false, want true", v)
+		}
 	}
-	for i, want := range allVersions {
-		if happi.AcceptedVersions[i] != want {
-			t.Errorf("AcceptedVersions[%d] = %q, want %q", i, happi.AcceptedVersions[i], want)
+}
+
+func TestAcceptsFutureMinorsOfTheSameMajor(t *testing.T) {
+	// The regression anchor for the council's blocking concern: a hardcoded
+	// accept-list merely DEFERS the version bug to the next release. HAPPI
+	// promises additive-only change within a major, so any happi/1.x must be
+	// accepted — otherwise every SDK breaks again on the day 1.4 ships.
+	for _, v := range []string{"happi/1.4", "happi/1.5", "happi/1.12", "happi/1.99"} {
+		if !happi.IsAccepted(v) {
+			t.Errorf("IsAccepted(%q) = false — a future minor must be accepted", v)
+		}
+	}
+}
+
+func TestRejectsOtherMajorsAndMalformed(t *testing.T) {
+	// Forward compatibility is NOT "accept anything". A major bump is exactly
+	// the signal that assumptions no longer hold, so it must still be refused.
+	for _, v := range []string{
+		"happi/2.0", "happi/0.9", "happi/2.1",
+		"", "1.3", "happi/", "happi/1", "happi/x.y", "happi/1.x", "nothappi/1.3",
+	} {
+		if happi.IsAccepted(v) {
+			t.Errorf("IsAccepted(%q) = true, want false", v)
 		}
 	}
 }
@@ -58,12 +80,23 @@ func TestEnvelopeValidateAcceptsEverySupportedVersion(t *testing.T) {
 }
 
 func TestEnvelopeValidateRejectsOutOfRange(t *testing.T) {
-	// Widening the accept-set must not become "accept anything".
-	for _, v := range []string{"happi/0.9", "happi/2.0", "happi/1.4", "", "1.3"} {
+	// Accepting any happi/1.x must not become "accept anything". A different
+	// major, or a malformed version string, is still refused.
+	// Note happi/1.4 is deliberately NOT here: a future MINOR is accepted by
+	// design, which is the whole point of the major-version policy.
+	for _, v := range []string{"happi/0.9", "happi/2.0", "", "1.3", "happi/1.x"} {
 		env := envelope.Envelope{V: v, ID: "r", Cmd: "version"}
 		if err := env.Validate(); err == nil {
 			t.Errorf("Validate(%q): expected an error, got nil", v)
 		}
+	}
+}
+
+func TestEnvelopeValidateAcceptsAFutureMinor(t *testing.T) {
+	env := envelope.Envelope{V: "happi/1.4", ID: "r", Cmd: "version"}
+	if err := env.Validate(); err != nil {
+		t.Errorf("Validate(happi/1.4): unexpected error %v — a future minor "+
+			"must be accepted, or this SDK breaks again the day 1.4 ships", err)
 	}
 }
 
