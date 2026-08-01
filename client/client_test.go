@@ -8,16 +8,23 @@ import (
 
 	"github.com/CodeTonight-SA/hal-go/envelope"
 	"github.com/CodeTonight-SA/hal-go/events"
+	"github.com/CodeTonight-SA/hal-go/happi"
+	"github.com/CodeTonight-SA/hal-go/internal/testutil"
 )
 
-// runtimePath points at the canonical happi.md reference runtime. We
-// dispatch through `bash /path/to/happi.md run` exactly as a downstream
-// caller would. Path is hard-wired to the V>> machine's installed copy
-// because that is the conformance reference for v0.1.
-const runtimePath = "/Users/lauriescheepers/.hal/happi.md"
+// runtime resolves the reference happi.md, skipping when none is present.
+//
+// This used to be a hardcoded absolute path to one developer's home
+// directory. Off that machine the spawn produced no events at all, so the
+// suite failed with "missing started event" — reporting a broken client
+// when the real cause was a missing runtime.
+func runtime(t *testing.T) string {
+	t.Helper()
+	return testutil.RequireReferenceRuntime(t)
+}
 
 func TestDispatchVersionThroughBashRuntime(t *testing.T) {
-	c := New("bash", runtimePath, "run")
+	c := New("bash", runtime(t), "run")
 	env := envelope.New("test-version-1", "version")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -53,15 +60,17 @@ func TestDispatchVersionThroughBashRuntime(t *testing.T) {
 	if !gotCompleted {
 		t.Error("missing completed event")
 	}
-	// Goodhart-resistant: assert the delta payload is the expected
-	// HAPPI version literal, not just "got a delta".
-	if deltaText != "happi/1.0" {
-		t.Errorf("delta text = %q, want \"happi/1.0\"", deltaText)
+	// Goodhart-resistant: assert the delta payload is a real HAPPI version,
+	// not just "got a delta". It must be the RUNTIME's version, which is
+	// free to advance ahead of this library — so check membership in the
+	// accepted set rather than pinning one literal.
+	if !happi.IsAccepted(deltaText) {
+		t.Errorf("delta text = %q, want one of %s", deltaText, happi.AcceptedList())
 	}
 }
 
 func TestDispatchEchoStreamsArgsInOrder(t *testing.T) {
-	c := New("bash", runtimePath, "run")
+	c := New("bash", runtime(t), "run")
 	env := envelope.New("test-echo-1", "echo")
 	env.Args = []any{"alpha", "beta", "gamma"}
 
@@ -92,7 +101,7 @@ func TestDispatchEchoStreamsArgsInOrder(t *testing.T) {
 }
 
 func TestDispatchErrorOnUnsupportedCmd(t *testing.T) {
-	c := New("bash", runtimePath, "run")
+	c := New("bash", runtime(t), "run")
 	env := envelope.New("test-err-1", "this.cmd.does.not.exist")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -118,7 +127,7 @@ func TestDispatchErrorOnUnsupportedCmd(t *testing.T) {
 }
 
 func TestDispatchRejectsInvalidEnvelope(t *testing.T) {
-	c := New("bash", runtimePath, "run")
+	c := New("bash", runtime(t), "run")
 	bad := envelope.Envelope{} // no v/id/cmd
 
 	_, err := c.Dispatch(context.Background(), bad)
@@ -137,7 +146,7 @@ func TestDispatchRejectsEmptyRuntime(t *testing.T) {
 }
 
 func TestDispatchRespectsContextCancellation(t *testing.T) {
-	c := New("bash", runtimePath, "run")
+	c := New("bash", runtime(t), "run")
 	env := envelope.New("test-ctx-1", "version")
 
 	ctx, cancel := context.WithCancel(context.Background())
