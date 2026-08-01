@@ -1,9 +1,9 @@
-// Package envelope implements the HAPPI/1.0 envelope: the JSON object
+// Package envelope implements the HAPPI/1.3 envelope: the JSON object
 // passed on stdin to a HAPPI runtime.
 //
-// HAPPI/1.0 spec: a HAPPI envelope has five required+optional fields:
+// HAPPI spec: a HAPPI envelope has five required+optional fields:
 //
-//	v     (required, always "happi/1.0")
+//	v     (required, any happi/1.x — see happi.IsAccepted)
 //	id    (required, caller-assigned, opaque, unique per call)
 //	cmd   (required, dot-path)
 //	args  (optional, array of arbitrary values)
@@ -21,10 +21,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/CodeTonight-SA/hal-go/happi"
 )
 
-// Version is the HAPPI protocol version literal that envelope.V must equal.
-const Version = "happi/1.0"
+// Version is the protocol version New stamps on envelopes it builds.
+const Version = happi.Version
+
+// KnownVersions are the protocol minors that existed when this library was
+// written. Informational only: acceptance is decided by happi.IsAccepted,
+// which admits any happi/1.x, so a future minor is not rejected merely for
+// being absent here. See the happi package for why the policy is a
+// major-version rule rather than a fixed enumeration.
+var KnownVersions = happi.KnownVersions
 
 // Envelope is a HAPPI/1.0 envelope. Marshal produces the canonical wire
 // form; Unmarshal preserves unknown fields in Extra so they round-trip.
@@ -43,12 +52,13 @@ func New(id, cmd string) Envelope {
 	return Envelope{V: Version, ID: id, Cmd: cmd}
 }
 
-// Validate returns nil if the envelope satisfies the HAPPI/1.0 schema.
-// It checks: v == "happi/1.0", id is non-empty string, cmd is non-empty
-// string. Unknown fields are tolerated by design.
+// Validate returns nil if the envelope satisfies the HAPPI schema.
+// It checks: v is one of AcceptedVersions, id is a non-empty string, cmd is
+// a non-empty string. Unknown fields are tolerated by design.
 func (e Envelope) Validate() error {
-	if e.V != Version {
-		return fmt.Errorf("envelope: unsupported version %q (want %q)", e.V, Version)
+	if !happi.IsAccepted(e.V) {
+		return fmt.Errorf("envelope: unsupported version %q (accepted: %s)",
+			e.V, happi.AcceptedList())
 	}
 	if e.ID == "" {
 		return errors.New("envelope: missing or empty 'id'")
