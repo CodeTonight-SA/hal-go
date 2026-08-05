@@ -4,7 +4,7 @@ HAPPI/1.3 client library for Go. AI as a syscall.
 
 ## Status
 
-v0.2 — tracks `happi/1.3`. Zero external dependencies. Stdlib only.
+v0.3.0 — tracks `happi/1.3`. Zero external dependencies. Stdlib only.
 
 ## What this is
 
@@ -92,9 +92,9 @@ for ev := range stream {
 }
 ```
 
-## v0.1 design choices
+## Design choices
 
-- **Zero external deps**: the core (envelope, events, client) imports nothing outside the Go standard library. The Anthropic adapter ships a stdlib-only `Stream` interface; the official `anthropic-sdk-go` integration is deferred to v0.2 so the dependency graph stays empty for callers who only need HAPPI dispatch.
+- **Zero external deps**: the core (envelope, events, client) imports nothing outside the Go standard library. The Anthropic adapter ships a stdlib-only `Stream` interface; the official `anthropic-sdk-go` integration is deferred to a future release so the dependency graph stays empty for callers who only need HAPPI dispatch.
 - **`context.Context`-first**: every dispatch takes a context. Cancellation kills the runtime subprocess via `exec.CommandContext` and closes the event channel.
 - **Syscall doctrine**: the `Client` is a typed shim. Switching the underlying runtime is a one-line change to the `Runtime` argv. Provider differences live behind the `providers/*/Adapter` boundary.
 - **DRY/KISS-clean**: every function is under 50 lines, every cyclomatic complexity is under 15. Extraction helpers exist where the natural body would have crossed those ceilings.
@@ -112,6 +112,10 @@ curl -fsSL "https://gist.githubusercontent.com/LaurieScheepers/2483d5c218c21ecc9
 HAPPI_MD=/tmp/happi.md go test ./...
 ```
 
-## License
+## Licence
 
-MIT — see LICENSE.
+AGPL-3.0-only — see [LICENSE](LICENSE).
+
+Copyright (C) 2024-2026 Lourens Cornelius Scheepers / CodeTonight (Pty) Ltd
+
+Under the AGPL, network use is distribution: if you run a modified version of this software and let others interact with it over a network, you must offer those users the complete corresponding source of your modified version.

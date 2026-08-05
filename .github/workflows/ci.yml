@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Matches go.mod's declared version by construction — no drift.
+          go-version-file: go.mod
+      - name: Build
+        run: go build ./...
+      - name: Test
+        # Cross-runtime conformance tests self-skip when no reference
+        # happi.md is reachable; the unit and version-negotiation tests
+        # always run.
+        run: go test ./...
