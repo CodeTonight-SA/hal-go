@@ -119,3 +119,6 @@ AGPL-3.0-only — see [LICENSE](LICENSE).
 Copyright (C) 2024-2026 Lourens Cornelius Scheepers / CodeTonight (Pty) Ltd
 
 Under the AGPL, network use is distribution: if you run a modified version of this software and let others interact with it over a network, you must offer those users the complete corresponding source of your modified version.
+
+**Commercial licences.** If the AGPL's network-use obligation does not fit your
+deployment, a commercial licence is available — contact licensing@codetonight.co.za.
