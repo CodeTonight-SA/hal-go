@@ -114,11 +114,10 @@ HAPPI_MD=/tmp/happi.md go test ./...
 
 ## Licence
 
-AGPL-3.0-only — see [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE).
 
 Copyright (C) 2024-2026 Lourens Cornelius Scheepers / CodeTonight (Pty) Ltd
 
-Under the AGPL, network use is distribution: if you run a modified version of this software and let others interact with it over a network, you must offer those users the complete corresponding source of your modified version.
-
-**Commercial licences.** If the AGPL's network-use obligation does not fit your
-deployment, a commercial licence is available — contact licensing@codetonight.co.za.
+You may use, modify and redistribute this library in any project, open or
+closed source, under the Apache License, version 2.0, which includes an
+express patent grant. Earlier releases were published under AGPL-3.0-only.
